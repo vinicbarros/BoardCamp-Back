@@ -44,11 +44,9 @@ const postGame = async (req, res) => {
 
 const getGames = async (req, res) => {
   const { name } = req.query;
-  console.log(name);
 
   try {
     if (name) {
-      console.log("entrou aqui");
       const filteredGames = (
         await db.query(
           `SELECT games.*, categories.name as "categoryName" FROM games JOIN categories ON categories.id=games."categoryId" WHERE LOWER (games.name) LIKE $1;`,
