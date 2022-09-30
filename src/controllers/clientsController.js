@@ -1,5 +1,4 @@
 import { db } from "../db/db.js";
-import { clientsSchema } from "../schemas/clientsSchema.js";
 
 const postClient = async (req, res) => {
   const { name, phone, cpf, birthday } = res.locals.client;
@@ -31,7 +30,9 @@ const getClient = async (req, res) => {
   try {
     if (cpf) {
       const searchCpf = (
-        await db.query(`SELECT * FROM customers WHERE cpf LIKE $1;`[`${cpf}%`])
+        await db.query(`SELECT * FROM customers WHERE cpf LIKE $1;`, [
+          `%${cpf}%`,
+        ])
       ).rows;
       return res.status(200).send(searchCpf);
     }
@@ -48,10 +49,14 @@ const getClientById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const clientById = (
-      await db.query(`SELECT * FROM customers WHERE id = $1;`, [id])
-    ).rows;
-    return res.status(200).send(clientById);
+    const clientById = await db.query(
+      `SELECT * FROM customers WHERE id = $1;`,
+      [id]
+    );
+    if (clientById.rowCount == 0) {
+      return res.status(404).send({ message: "This id isn't valid." });
+    }
+    return res.status(200).send(clientById.rows);
   } catch (error) {
     return res.status(404).send({ message: "This id isn't valid." });
   }
@@ -75,11 +80,13 @@ const updateClient = async (req, res) => {
     }
 
     await db.query(
-      `UPDATE customers SET name = $1, phone = $2, cpf = $3, birthday = $4;`,
-      [name, phone, cpf, birthday]
+      `UPDATE customers SET name = $1, phone = $2, cpf = $3, birthday = $4 WHERE id = $5;`,
+      [name, phone, cpf, birthday, id]
     );
     return res.sendStatus(200);
-  } catch (error) {}
+  } catch (error) {
+    return res.sendStatus(400);
+  }
 };
 
-export { postClient, getClient, getClientById };
+export { postClient, getClient, getClientById, updateClient };
