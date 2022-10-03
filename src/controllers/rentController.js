@@ -97,4 +97,67 @@ const getRentals = async (req, res) => {
   }
 };
 
-export { getRentals, postRent };
+const finishRent = async (req, res) => {
+  const { id } = req.params;
+
+  const isRentValid = await db.query(`SELECT * FROM rentals WHERE id = $1;`, [
+    id,
+  ]);
+
+  if (!(isRentValid.rowCount > 0)) {
+    return res.status(404).send({ message: "This id is not valid." });
+  }
+
+  let rentValid = isRentValid.rows[0];
+
+  try {
+    if (rentValid.returnDate) {
+      return res
+        .status(400)
+        .send({ error: "Rental has already been finished" });
+    }
+    const now = dayjs();
+    const diff = now.diff(rentValid.rentDate, "day");
+
+    let taxes = 0;
+    let mustPayTaxes = diff > rentValid.daysRented;
+    if (mustPayTaxes) {
+      taxes =
+        (diff - rentValid.daysRented) *
+        (rentValid.originalPrice / rentValid.daysRented);
+    }
+    await db.query(
+      `UPDATE rentals 
+    SET "returnDate" = $1, "delayFee" = $2 WHERE id = $3`,
+      [dayjs(now).format("YYYY-MM-DD"), taxes, id]
+    );
+    res
+      .status(200)
+      .send({ message: "Returned the game to the store successfully." });
+  } catch (error) {
+    res.status(400).send(error.message);
+  }
+};
+
+const deleteRent = async (req, res) => {
+  const { id } = req.params;
+
+  const isRentValid = (
+    await db.query(`SELECT * FROM rentals WHERE id = $1;`, [id])
+  ).rows[0];
+
+  if (!isRentValid || isRentValid.returnDate) {
+    return res.status(404).send({
+      message: "This rent has already been finished or the id isn't valid.",
+    });
+  }
+
+  try {
+    await db.query(`DELETE FROM rentals WHERE id = $1;`, [id]);
+    return res.status(200).send({ message: "Rent deleted successfully." });
+  } catch (error) {
+    return res.status(400).send({ message: "An error ocurred." });
+  }
+};
+
+export { getRentals, postRent, finishRent, deleteRent };
